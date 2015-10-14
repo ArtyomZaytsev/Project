@@ -11,12 +11,15 @@
     }
 
     ws.onmessage = function(e) {
-      alert("Received data: " + e.data);
+      if (e.data != "ok") {
+        alert(e.data);
+      } else {.
+      document.location.href = "/profile";
+      }
     }
 
     function sendUserData() {
-      ws.send('user_' + document.getElementById('username').value);
-      ws.send('pwd_' + document.getElementById('pwd').value);
+      ws.send('usrdata_' + document.getElementById('username').value + '*****' + document.getElementById('pwd').value);
     }
 
     ws.onclose = function() { 
@@ -36,5 +39,7 @@
 </body>
 </html>
 
+</script>
 
 
+#сделать на главной дивы: в одном будут все юзеры, в другом информация о моем текущем юзере, в третьем поля для редактирования текущего пользователя.
