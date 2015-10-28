@@ -18,34 +18,27 @@ db.db_open( "my-project", "root", "network.ssl.keyStorePassword" )
 class MainHandler(tornado.web.RequestHandler):
     @tornado.web.asynchronous
     def get(self):
-        self.render("login.html")
-
-class ProfileHandler(tornado.web.RequestHandler):
-    @tornado.web.asynchronous
-    def get(self):
-        self.render("profile.html")
+        self.render("index.html")
 
 class WSHandler(tornado.websocket.WebSocketHandler):
     def open(self):
         print 'new connection'
         print clients
-    
+        users = db.query("select name, age, city from Userdata LIMIT 1000")
+        self.get_users_info(users)
+        self.write_message("Usr_empty")
+
     def on_message(self, message):
         if message.startswith("usrdata_"):
             usrdata = message.split('*****')
             usrdata[0] = usrdata[0][8:]
-            if db.command("select @rid from Userdata where name = '%s' " % usrdata[0]):
-                self.write_message("This username is already taken, please try again")
+            if self.is_user_empty(usrdata):
+                self.write_message("Usr_alr_taken")
             else:
-                db.command( 'CREATE VERTEX Userdata set name = "%s", password = "%s"' % (usrdata[0], usrdata[1]) )
-                clients[self] = usrdata[0]
-                print clients
-                self.write_message("ok")
-        elif message.startswith("editusr_"):
-            self.write_message(clients[self])
-        elif message.startswith("usrlist_"):
-            userlist = self.get_users()
-            self.write_message(json.dumps(userlist))
+                self.create_user(usrdata)
+        elif message.startswith("usrinfo_"):
+            self.edit_user(message)
+
         else:
             pass
  
@@ -55,11 +48,40 @@ class WSHandler(tornado.websocket.WebSocketHandler):
     def check_origin(self, origin):
         return True
 
-    def get_users(self):
-        users = db.query("select name from Userdata")
-        for i in range(len(users)):
-            users[i] = users[i].oRecordData['name']
-        return users
+    def is_user_empty(self, usrdata):
+        return db.command("select @rid from Userdata where name = '%s' " % usrdata[0])
+
+    def create_user(self, usrdata):
+        db.command( 'CREATE VERTEX Userdata set name = "%s", password = "%s"' % (usrdata[0], usrdata[1]) )
+        clients[self] = usrdata[0]
+        main_user_info = db.query('select name, age, city from Userdata where name = "%s"' % clients[self])
+        self.get_users_info(main_user_info, True)
+        users_info = db.query("select name, age, city from Userdata LIMIT 1000")
+        self.get_users_info(users_info)
+
+    def get_users_info(self, users, main_usr=False):
+        for i in users:
+            user = {}
+            user_to_send = {}
+            user['name'] = i.oRecordData['name']
+            if i.oRecordData.get('age'):
+                user['age'] = i.oRecordData['age']
+            if i.oRecordData.get('city'):
+                user['city'] = i.oRecordData['city']
+            if main_usr:
+                user_to_send['Main_usr_info'] = user
+            else:
+                user_to_send['Usrs_info'] = user
+            self.write_message(json.dumps(user_to_send))
+
+    def edit_user(self, message):
+        usrdata = message.split('***')
+        usrdata[0] = usrdata[0][8:]
+        db.command( 'update Userdata set name="%s", age="%s", city="%s" where name="%s"' % (usrdata[0], usrdata[1], usrdata[2], clients[self]) )
+        user_info = db.query('select name, age, city from Userdata where name = "%s"' % usrdata[0])
+        self.get_users_info(user_info, True)
+        users_info = db.query("select name, age, city from Userdata LIMIT 1000")
+        self.get_users_info(users_info)
 
 settings = {
     'template_path': 'templates',
@@ -70,7 +92,6 @@ settings = {
 application = tornado.web.Application([
     (r"/", MainHandler),
     (r'/ws', WSHandler),
-    (r"/profile", ProfileHandler),
     ], **settings)
 
  

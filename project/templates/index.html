@@ -1,0 +1,99 @@
+<html>
+<head>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.2.0/lodash.js"></script>
+<script src="https://code.jquery.com/jquery-1.10.2.js"></script>
+<script src="{{ static_url("js/templates.js") }}"></script>
+<link rel="stylesheet" type="text/css" href="{{ static_url("css/style.css") }}" />
+<title>Project</title>
+<script>
+  var ws = new WebSocket("ws://localhost:8888/ws");
+
+  ws.onopen = function() {
+      alert("Connection is opened");
+      $(".users_list_box_header").append(header_usrlist);
+      var cap_usrlst = _.template('<div class="users_list_str"><b>Name</b></div><div class="users_list_str"><b>Age</b></div><div class="users_list_str"><b>City</b></div>');
+      $(".users_list_box_header").append(cap_usrlst);
+    }
+  ws.onmessage = function(e) {
+      if (e.data in events) {
+        events[e.data]();
+      } else {
+      PrintUsers(e.data);
+      }
+    }
+  ws.onclose = function() { 
+      alert("Connection is closed"); 
+    }
+  function sendUserData() {
+      ws.send('usrdata_' + document.getElementById('username').value + '*****' + document.getElementById('pwd').value);
+      $(".users_list_box_content").html('');
+    }
+  function EditUserData() {
+      ws.send('usrinfo_' + document.getElementById('name_usr').value + '***'+ document.getElementById('age_usr').value + '***' + document.getElementById('city_usr').value);
+      $(".users_list_box_content").html('');
+    } 
+  function UserEmpty() {
+    $(".log_field").html('<br>Name: <input id="username" maxlength="20" type="text" name="name"> <br>Password: <input id="pwd" maxlength="20" type="password" name="password"> <br><input onclick="sendUserData();" type="button" value="Sign in">');
+  }
+  function UserNotEmpty(username) {
+    var usrname = username;
+    var welcome = _.template('<h2><% print("Hello, " + name); %>!</h2>');
+    $(".log_field").html(welcome({'name': usrname}));
+  }
+  function UsersInfo(name, age, city) {
+    var name_usr = name;
+    var age_usr = age;
+    var city_usr = city;
+    var comp = _.template('<b>Name:</b><div class="users_list_str">&nbsp;<%= name %></div><br><b>Age:</b><div class="users_list_str">&nbsp;<%= age %></div><br><b>City:</b><div class="users_list_str">&nbsp;<%= city %></div>');
+    $(".cur_user_content").html(comp({'name': name_usr, 'age': age_usr, 'city': city_usr}));
+  }
+  function EditUserInfo(name, age, city) {
+    var name_usr = name;
+    var age_usr = age;
+    var city_usr = city;
+    var info = _.template('Name: <input id="name_usr" maxlength="20" type="text" name="name" value="<%=name %>"><br>Age:<input id="age_usr" maxlength="20" type="text" name="age" value="<%=age %>"> <br>City:<input id="city_usr" maxlength="20" type="text" name="city" value="<%=city %>"><br><input onclick="EditUserData();" type="button" value="Edit info">');
+    $(".users_info_content").html(info({'name': name_usr, 'age': age_usr, 'city': city_usr}));
+  }
+  function UserAlrTaken() {
+    alert("This username is already taken, please try again");
+  }
+  function PrintUsers(data) {
+    var users = JSON.parse(data);
+    var compiled = _.template('<% _.forEach(users, function(user) { %><div class="users_list_str"><%- user %></div><% }); %>'); 
+    if ('Usrs_info' in users) {
+      $(".users_list_box_content").append(compiled({ 'users': [users.Usrs_info.name, users.Usrs_info.age, users.Usrs_info.city] }))
+    } else {
+      var name_usr = users.Main_usr_info.name;
+      var age_usr = users.Main_usr_info.age;
+      var city_usr = users.Main_usr_info.city;
+      UserNotEmpty(name_usr);
+      UsersInfo(name_usr, age_usr, city_usr);
+      EditUserInfo(name_usr, age_usr, city_usr);
+    } 
+  }
+
+  var events = {
+    'Usr_empty': UserEmpty,
+    'Usr_alr_taken': UserAlrTaken
+  }
+</script>  
+</head>
+<body>
+  <div class="container">
+    <div class="users_list_box">
+      <div class="users_list_box_header"></div>
+      <div class="users_list_box_content"></div>
+    </div>
+    <div class="log_field">
+    </div>
+    <div class="cur_user">
+      <div class="cur_user_header"><h3>The current user:</h3></div>
+      <div class="cur_user_content"></div>
+    </div>
+    <div class="users_info">
+      <div class="users_info_header"> <h3>Edit user info:</h3></div>
+      <div class="users_info_content"></div>
+    </div>
+  </div>
+</body>
+</html>
